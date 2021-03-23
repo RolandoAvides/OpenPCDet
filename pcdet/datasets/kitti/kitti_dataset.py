@@ -104,7 +104,7 @@ class KittiDataset(DatasetTemplate):
         return calibration_kitti.Calibration(calib_file)
 
     # begin - as minhas funçoes
-    def cam_to_lidar(pointcloud, projection_mats):
+    def cam_to_lidar(self, pointcloud, projection_mats):
         """
         Takes in lidar in velo coords, returns lidar points in camera coords
         :param pointcloud: (n_points, 4) np.array (x,y,z,r) in velodyne coordinates
@@ -134,7 +134,7 @@ class KittiDataset(DatasetTemplate):
         class_scores = class_scores.squeeze()
         return class_scores
 
-    def augment_lidar_class_scores( class_scores, lidar_cam_coords, projection_mats):
+    def augment_lidar_class_scores(self, class_scores, lidar_cam_coords, projection_mats):
         """
         Projects lidar points onto segmentation map, appends class score each point projects onto.
         """
@@ -162,7 +162,7 @@ class KittiDataset(DatasetTemplate):
         augmented_lidar_cam_coords = torch.cat((lidar_cam_coords[:, :-1].to("cuda:0"), reflectances.to("cuda:0"), point_scores.to("cuda:0")), 1)
         return augmented_lidar_cam_coords, true_where_point_on_img
 
-    def semantic_augmentation(pointcloud, calibration_matrix, im):
+    def semantic_augmentation(self, pointcloud, calibration_matrix, im):
         cfg = get_cfg()
         # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
         # cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml"))
@@ -175,6 +175,7 @@ class KittiDataset(DatasetTemplate):
 
         outputs = predictor(im)
 
+        """
         class_scores = torch.zeros(im.shape[0], im.shape[1]).to("cuda:0")
         nr_instances = list(outputs["instances"].pred_classes.shape)[0]
         aux = torch.zeros(1,im.shape[0], im.shape[1]).to("cuda:0")
@@ -182,6 +183,15 @@ class KittiDataset(DatasetTemplate):
             if outputs["instances"].pred_classes[i]==0:
                 class_scores = torch.stack([outputs["instances"].pred_masks[i], class_scores], dim=0)
                 class_scores = torch.amax(class_scores, dim=0)
+        """
+        class_scores = torch.zeros(im.shape[0], im.shape[1]).to("cuda:0")
+        nr_instances = list(outputs["instances"].pred_classes.shape)[0]
+        aux = torch.zeros(1,im.shape[0], im.shape[1]).to("cuda:0")
+        for i in range(0,nr_instances):
+            mask = outputs["instances"].pred_classes[i] 
+            if mask in [0,1,2]:
+                    class_scores = torch.stack([outputs["instances"].pred_masks[i]*(mask+1), class_scores], dim=0)
+                    class_scores = torch.amax(class_scores, dim=0)
 
         with calibration_matrix as f:
                     lines = f.readlines()
@@ -196,8 +206,8 @@ class KittiDataset(DatasetTemplate):
                     Tr_velo_to_cam[:3, :4] = np.array(lines[5].split(":")[-1].split(), dtype=np.float32).reshape((3,4)) # makes 4x4 matrix
                     projection_mats = {'P2': P2, 'R0_rect': R0_rect, 'Tr_velo_to_cam':Tr_velo_to_cam}
 
-        lidar_cam_coords = cam_to_lidar(pointcloud, projection_mats)
-        augmented_lidar_cam_coords, mask_aux = augment_lidar_class_scores(class_scores, lidar_cam_coords, projection_mats)
+        lidar_cam_coords = self.cam_to_lidar(pointcloud, projection_mats)
+        augmented_lidar_cam_coords, mask_aux = self.augment_lidar_class_scores(class_scores, lidar_cam_coords, projection_mats)
         reduced_pointcloud = torch.tensor(pointcloud[mask_aux])
         augmented_lidar_coords = np.c_[reduced_pointcloud, augmented_lidar_cam_coords.cpu().numpy()[:,4]] 
         augmented_lidar_coords_tensor = torch.tensor(augmented_lidar_coords).to('cuda:0')
@@ -482,18 +492,17 @@ class KittiDataset(DatasetTemplate):
             points = points[fov_flag]
         
         # begin - pointpainting
-        img_path = self.root_split_path / 'image_2' / ('%s.png' % idx)
-        img = cv2.imread(img_path)
+        img_path = self.root_split_path / 'image_2' / ('%s.png' % sample_idx)
+        img = cv2.imread(str(img_path))
         calib_path = self.root_split_path / 'calib' / ('%s.txt' % sample_idx)
-        points_aug =  semantic_augmentation(points, open(calib_path), img)
+        points_aug =  self.semantic_augmentation(points, open(calib_path), img)
         input_dict = {
             'points': points_aug,
             'frame_id': sample_idx,
             'calib': calib,
         }
-
         # end - point painting
-
+        
         """
         # OPEN-PCDet version
         input_dict = {
@@ -502,6 +511,7 @@ class KittiDataset(DatasetTemplate):
             'calib': calib,
         }
         """
+        
 
         if 'annos' in info:
             annos = info['annos']
@@ -520,8 +530,8 @@ class KittiDataset(DatasetTemplate):
                 input_dict['road_plane'] = road_plane
 
         data_dict = self.prepare_data(data_dict=input_dict)
-
         data_dict['image_shape'] = img_shape
+        
         return data_dict
 
 
