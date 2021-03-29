@@ -26,6 +26,13 @@ from detectron2.config import get_cfg
 # from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog, DatasetCatalog
 
+import time
+import sys
+from tqdm import trange
+
+def do_something():
+    time.sleep(1)
+
 
 def cam_to_lidar(pointcloud, projection_mats):
         """
@@ -187,7 +194,35 @@ def get_index_positions(list_of_elems, element):
             break
     return index_pos_list
 
+########### Initial Configurations ###########
+kitti_path = "/home/rmoreira/kitti/pcdet/training/image_2/"
+kitti_save_path = '/home/rmoreira/kitti/pcdet/training/masks/'
+cfg = get_cfg()
+# add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
+# cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml"))
+cfg.merge_from_file(model_zoo.get_config_file("COCO-PanopticSegmentation/panoptic_fpn_R_101_3x.yaml"))
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
+# Find a model from detectron2's model zoo. You can use the https://dl.fbaipublicfiles... url as well
+# cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml")
+cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-PanopticSegmentation/panoptic_fpn_R_101_3x.yaml")
+predictor = DefaultPredictor(cfg)
 
+for idx in trange(7841):
+  im = cv2.imread(kitti_path+str(idx).rjust(6,'0')+'.png')
+  outputs = predictor(im)
+  class_scores = torch.zeros(im.shape[0], im.shape[1]).to("cuda:0")
+  nr_instances = list(outputs["instances"].pred_classes.shape)[0]
+  aux = torch.zeros(1,im.shape[0], im.shape[1]).to("cuda:0")
+  for i in range(0,nr_instances):
+    if outputs["instances"].pred_classes[i]==0:
+      class_scores = torch.stack([outputs["instances"].pred_masks[i], class_scores], dim=0)
+      class_scores = torch.amax(class_scores, dim=0)
+  torch.save(class_scores, kitti_save_path+str(idx).rjust(6,'0')+'.pt')
+  do_something()
+  
+
+
+"""
 kitti_path = "/home/rmoreira/kitti/pcdet/training/"
 img_name = 'image_2/000000.png'
 im = cv2.imread(kitti_path+img_name)
@@ -201,6 +236,7 @@ pointcloud = np.fromfile(path_pointcloud, dtype=np.float32).reshape(-1,4)
 
 res = semantic_augmentation(pointcloud, open(path_calib), im)
 print(res.shape)
+"""
 
 """
 path_to_kitti = "/home/rmoreira/kitti/pcdet/training/"
