@@ -29,7 +29,7 @@ DATA_AUGMENTOR:
           }
 
           SAMPLE_GROUPS: ['Car:20','Pedestrian:15', 'Cyclist:15']
-          NUM_POINT_FEATURES: 5 # 4 
+          NUM_POINT_FEATURES: 4 # 5 
           DATABASE_WITH_FAKELIDAR: False
           REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
           LIMIT_WHOLE_SCENE: True
@@ -48,7 +48,6 @@ POINT_FEATURE_ENCODING: {
     used_feature_list: ['x', 'y', 'z', 'intensity','mask'],
     src_feature_list: ['x', 'y', 'z', 'intensity','mask'],
 }
-
 
 DATA_PROCESSOR:
     - NAME: mask_points_and_boxes_outside_range
