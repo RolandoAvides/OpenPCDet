@@ -1,6 +1,7 @@
 import pickle
 
 import numpy as np
+from numpy import load
 
 from ...ops.iou3d_nms import iou3d_nms_utils
 from ...utils import box_utils
@@ -115,7 +116,7 @@ class DataBaseSampler(object):
         gt_boxes[:, 2] -= mv_height  # lidar view
         return gt_boxes, mv_height
 
-    """
+    
     # função original
     def add_sampled_boxes_to_scene(self, data_dict, sampled_gt_boxes, total_valid_sampled_dict):
         gt_boxes_mask = data_dict['gt_boxes_mask']
@@ -132,6 +133,9 @@ class DataBaseSampler(object):
         obj_points_list = []
         for idx, info in enumerate(total_valid_sampled_dict):
             file_path = self.root_path / info['path']
+            #i=0
+            #assert i==1 , "DEBUG -> %s" % file_path
+            
             obj_points = np.fromfile(str(file_path), dtype=np.float32).reshape(
                 [-1, self.sampler_cfg.NUM_POINT_FEATURES])
                 
@@ -160,8 +164,8 @@ class DataBaseSampler(object):
         data_dict['points'] = points
         print(points.shape)
         return data_dict
-    """
     
+    """
     # begin - a minha função
     def add_sampled_boxes_to_scene(self, data_dict, sampled_gt_boxes, total_valid_sampled_dict):
         gt_boxes_mask = data_dict['gt_boxes_mask']
@@ -210,6 +214,7 @@ class DataBaseSampler(object):
         data_dict['points'] = points
 
         return data_dict
+    """
     # end - a minha função
 
     def __call__(self, data_dict):
