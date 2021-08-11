@@ -148,7 +148,7 @@ def semantic_augmentation(pointcloud, calibration_matrix, im, predictor):
 def main():
         
         kitti_path = "/ctm-hdd-pool01/rmoreira/kitti/final/training/"
-        kitti_save_path = "/ctm-hdd-pool01/rmoreira/kitti/final/training/velodyne_painted_npy/"
+        kitti_save_path = "/ctm-hdd-pool01/rmoreira/kitti/final/training/semantics/"
 
 
         cfg = get_cfg()
@@ -161,29 +161,36 @@ def main():
         cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("Cityscapes/mask_rcnn_R_50_FPN.yaml")
         predictor = DefaultPredictor(cfg)
 
-        for idx in trange(0,7481):
-		path_pointcloud = kitti_path+'velodyne/'+str(idx).rjust(6,'0')+'.bin'
-		path_calib = kitti_path+'calib/'+str(idx).rjust(6,'0')+'.txt'
+        for idx in trange(0,1): #7481 
+            img_name = 'image_2/'+str(idx).rjust(6,'0')+'.png'
+            im = cv2.imread(kitti_path+img_name)
+            outputs = predictor(im)
+            save_path = kitti_save_path+str(idx).rjust(6,'0')+'.png'
+            cv2.imwrite(save_path,out.get_image()[:, :, ::-1])
+            """
+            path_pointcloud = kitti_path+'velodyne/'+str(idx).rjust(6,'0')+'.bin'
+            path_calib = kitti_path+'calib/'+str(idx).rjust(6,'0')+'.txt'
 
-		path_pointcloud = kitti_path+'velodyne/'+str(idx).rjust(6,'0')+'.bin'
-		path_calib = kitti_path+'calib/'+str(idx).rjust(6,'0')+'.txt'
+            path_pointcloud = kitti_path+'velodyne/'+str(idx).rjust(6,'0')+'.bin'
+            path_calib = kitti_path+'calib/'+str(idx).rjust(6,'0')+'.txt'
 
-		img_name = 'image_2/'+str(idx).rjust(6,'0')+'.png'
-		im = cv2.imread(kitti_path+img_name)
+            img_name = 'image_2/'+str(idx).rjust(6,'0')+'.png'
+            im = cv2.imread(kitti_path+img_name)
 
-		calib = get_calib(path_calib,idx)
+            calib = get_calib(path_calib,idx)
 
-		pointcloud = np.fromfile(path_pointcloud, dtype=np.float32).reshape(-1,4)
-		pts_rect = calib.lidar_to_rect(pointcloud[:, 0:3])
-		fov_flag = get_fov_flag(pts_rect, im.shape, calib)
-		pointcloud = pointcloud[fov_flag]
+            pointcloud = np.fromfile(path_pointcloud, dtype=np.float32).reshape(-1,4)
+            pts_rect = calib.lidar_to_rect(pointcloud[:, 0:3])
+            fov_flag = get_fov_flag(pts_rect, im.shape, calib)
+            pointcloud = pointcloud[fov_flag]
 
-		pcd = semantic_augmentation(pointcloud, open(path_calib), im, predictor)
+            pcd = semantic_augmentation(pointcloud, open(path_calib), im, predictor)
 
-		data = asarray(pcd)
-		data = np.float32(data)    
-		
-		save(kitti_save_path+str(idx).rjust(6,'0')+'.npy', data)
+            data = asarray(pcd)
+            data = np.float32(data)    
+            
+            save(kitti_save_path+str(idx).rjust(6,'0')+'.npy', data)
+            """
 
 
 if __name__ == '__main__':
